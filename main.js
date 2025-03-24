@@ -2,7 +2,6 @@
 
 let gl;                         // The webgl context.
 let surface;                    // A surface model
-let surfaceWebCam;              // A substrate for webcam image
 let shProgram;                  // A shader program
 let shProgramWebCam;            // A shader program for webcam
 let spaceball;                  // A SimpleRotator object that lets the user rotate the view by mouse.
@@ -41,16 +40,14 @@ function draw() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     // PATH ZERO: DRAW ZERO PARALLAX WEBCAM
-    if (iTextureWebCam >= 0) {
-        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, video);
-    }
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, video);
 
     shProgramWebCam.Use();
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, iTextureWebCam);
     gl.uniform1i(shProgramWebCam.iSampler, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
     
-    surfaceWebCam.Draw();
     
     // Switch to main shader for 3D model
     shProgram.Use();
@@ -127,9 +124,7 @@ function initGL() {
     shProgramWebCam = new ShaderProgram('WebCam', progWebCam);
     shProgramWebCam.Use();
 
-    shProgramWebCam.iAttribVertex = gl.getAttribLocation(progWebCam, "vertex");
-    shProgramWebCam.iAttribTexCoord = gl.getAttribLocation(progWebCam, "texCoord");
-    shProgramWebCam.iSampler = gl.getUniformLocation(progWebCam, "sampler");
+    shProgramWebCam.iSampler = gl.getUniformLocation(progWebCam, "video");
 
     // Create the sinusoid surface
     surface = new Model('Surface');
@@ -137,49 +132,7 @@ function initGL() {
     const n = 2;    // Number of waves
     const R = 1.0;  // Radius
     surface.CreateSinusoidSurface(a, n, R, 30, 30);
-
-    // Create the webcam surface
-    surfaceWebCam = new Model('SurfaceWebCam');
-    let webCamVertices = new Float32Array([
-        -1.0, -1.0, -5.0,
-         1.0, -1.0, -5.0,
-         1.0,  1.0, -5.0,
-         1.0,  1.0, -5.0,
-        -1.0,  1.0, -5.0,
-        -1.0, -1.0, -5.0
-    ]);
-    let webCamTexCoords = new Float32Array([
-        0.0, 0.0,
-        1.0, 0.0,
-        1.0, 1.0,
-        1.0, 1.0,
-        0.0, 1.0,
-        0.0, 0.0
-    ]);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, surfaceWebCam.iVertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, webCamVertices, gl.STATIC_DRAW);
     
-    let texCoordBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, webCamTexCoords, gl.STATIC_DRAW);
-    
-    surfaceWebCam.iTexCoordBuffer = texCoordBuffer;
-    surfaceWebCam.count = 6;
-    surfaceWebCam.type = gl.TRIANGLES;
-    
-    surfaceWebCam.Draw = function() {
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.iVertexBuffer);
-        gl.vertexAttribPointer(shProgramWebCam.iAttribVertex, 3, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(shProgramWebCam.iAttribVertex);
-        
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.iTexCoordBuffer);
-        gl.vertexAttribPointer(shProgramWebCam.iAttribTexCoord, 2, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(shProgramWebCam.iAttribTexCoord);
-        
-        gl.drawArrays(this.type, 0, this.count);
-    };
-
     // Initialize stereo camera
     stereoCam = new StereoCamera(
         0.7,     // eyeSeparation (decimeters)
@@ -245,7 +198,7 @@ function init() {
     let canvas;
     try {
         canvas = document.getElementById("webglcanvas");
-        gl = canvas.getContext("webgl");
+        gl = canvas.getContext("webgl2");
         if (!gl) {
             throw "Browser does not support WebGL";
         }
