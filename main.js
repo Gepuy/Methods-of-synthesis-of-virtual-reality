@@ -11,6 +11,172 @@ let iTextureWebCam = -1;
 
 let video;
 
+let websocket;
+let magnetometerData = { x: 0, y: 0, z: 0 };
+let lastMagnetometerData = { x: 0, y: 0, z: 0 };
+let usePhoneSensor = false;
+let lastMagnetometerMatrix = m4.identity();
+
+// New variables for improved motion smoothing
+let lastUpdateTime = 0;
+let updateInterval = 50; // milliseconds between updates (20 updates per second)
+let rotationMatrixHistory = [];
+let maxHistoryLength = 5; // Number of matrices to keep for averaging
+let customSmoothingFactor = 0.3; // Default value, will be configurable
+
+function connectToSensorServer() {
+    const serverUrl = document.getElementById('serverUrl').value;
+    
+    if (!serverUrl) {
+        alert('Please enter the Sensor Server WebSocket URL');
+        return;
+    }
+    
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+        websocket.close();
+    }
+    
+    websocket = new WebSocket(serverUrl);
+    
+    websocket.onopen = function() {
+        console.log('Connected to Sensor Server');
+        usePhoneSensor = true;
+        document.getElementById('connectionStatus').textContent = 'Connected';
+        document.getElementById('connectionStatus').style.color = 'green';
+        document.getElementById('sensorStatus').textContent = 'Enabled';
+        document.getElementById('sensorStatus').style.color = 'green';
+    };
+    
+    websocket.onmessage = function(event) {
+        try {
+            const data = JSON.parse(event.data);
+            
+            const currentTime = Date.now();
+            if (currentTime - lastUpdateTime < updateInterval) {
+                return;
+            }
+            lastUpdateTime = currentTime;
+            
+            if (data.values && data.values.length >= 3) {
+                const mag = data.values;
+                
+                magnetometerData = {
+                    x: lastMagnetometerData.x * (1 - customSmoothingFactor) + parseFloat(mag[0]) * customSmoothingFactor,
+                    y: lastMagnetometerData.y * (1 - customSmoothingFactor) + parseFloat(mag[1]) * customSmoothingFactor,
+                    z: lastMagnetometerData.z * (1 - customSmoothingFactor) + parseFloat(mag[2]) * customSmoothingFactor
+                };
+                lastMagnetometerData = { ...magnetometerData };
+    
+                document.getElementById('magX').textContent = magnetometerData.x.toFixed(2);
+                document.getElementById('magY').textContent = magnetometerData.y.toFixed(2);
+                document.getElementById('magZ').textContent = magnetometerData.z.toFixed(2);
+    
+                const newMatrix = calculateMagnetometerMatrix(magnetometerData);
+                
+                rotationMatrixHistory.push(newMatrix);
+                
+                if (rotationMatrixHistory.length > maxHistoryLength) {
+                    rotationMatrixHistory.shift();
+                }
+                
+                lastMagnetometerMatrix = averageRotationMatrices(rotationMatrixHistory);
+            }
+        } catch (error) {
+            console.error('Error parsing sensor data:', error);
+        }
+    };
+    
+    websocket.onclose = function() {
+        console.log('Disconnected from Sensor Server');
+        usePhoneSensor = false;
+        document.getElementById('connectionStatus').textContent = 'Disconnected';
+        document.getElementById('connectionStatus').style.color = 'red';
+        document.getElementById('sensorStatus').textContent = 'Disabled';
+        document.getElementById('sensorStatus').style.color = 'red';
+    };
+    
+    websocket.onerror = function(error) {
+        console.error('WebSocket error:', error);
+        usePhoneSensor = false;
+        document.getElementById('connectionStatus').textContent = 'Error';
+        document.getElementById('connectionStatus').style.color = 'red';
+        document.getElementById('sensorStatus').textContent = 'Disabled';
+        document.getElementById('sensorStatus').style.color = 'red';
+    };
+}
+
+function disconnectFromSensorServer() {
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+        websocket.close();
+    }
+    usePhoneSensor = false;
+    document.getElementById('connectionStatus').textContent = 'Disconnected';
+    document.getElementById('connectionStatus').style.color = 'red';
+    document.getElementById('sensorStatus').textContent = 'Disabled';
+    document.getElementById('sensorStatus').style.color = 'red';
+}
+
+function calculateMagnetometerMatrix(mag) {
+    const magnitude = Math.sqrt(mag.x * mag.x + mag.y * mag.y + mag.z * mag.z);
+    if (magnitude === 0) return m4.identity();
+    
+    const nx = mag.x / magnitude;
+    const ny = mag.y / magnitude;
+    const nz = mag.z / magnitude;
+    
+    // For compass-like behavior, we need to:
+    // 1. Calculate heading (yaw) - rotation around vertical axis
+    // 2. Calculate pitch - tilt towards ground/sky
+    
+    // Calculate heading angle (rotation around vertical axis)
+    // This gives us the compass direction
+    const heading = Math.atan2(ny, nx);
+    
+    // Calculate pitch (tilt up/down)
+    const horizontalMagnitude = Math.sqrt(nx * nx + ny * ny);
+    const pitch = Math.atan2(-nz, horizontalMagnitude);
+    
+    // Create rotation matrices
+    const rotZ = m4.zRotation(heading);
+    const rotX = m4.xRotation(pitch);
+    
+    // Combine rotations
+    return m4.multiply(rotZ, rotX);
+}
+
+function averageRotationMatrices(matrices) {
+    if (matrices.length === 0) return m4.identity();
+    if (matrices.length === 1) return matrices[0];
+    
+    let result = m4.identity();
+    
+    for (let i = 0; i < 16; i++) {
+        let sum = 0;
+        
+        for (let m = 0; m < matrices.length; m++) {
+            sum += matrices[m][i];
+        }
+        
+        result[i] = sum / matrices.length;
+    }
+    
+    return result;
+}
+
+function updateSmoothingSettings() {
+    customSmoothingFactor = parseFloat(document.getElementById('smoothingFactor').value);
+    updateInterval = parseInt(document.getElementById('updateInterval').value);
+    maxHistoryLength = parseInt(document.getElementById('historyLength').value);
+    
+    document.getElementById('smoothingFactorValue').textContent = customSmoothingFactor.toFixed(1);
+    document.getElementById('updateIntervalValue').textContent = updateInterval;
+    document.getElementById('historyLengthValue').textContent = maxHistoryLength;
+    
+    rotationMatrixHistory = [];
+    
+    console.log(`Smoothing settings updated: factor=${customSmoothingFactor}, interval=${updateInterval}ms, history=${maxHistoryLength}`);
+}
+
 // Constructor
 function ShaderProgram(name, program) {
     this.name = name;
@@ -53,7 +219,12 @@ function draw() {
     shProgram.Use();
     
     /* Get the view matrix from the SimpleRotator object.*/
-    let modelView = spaceball.getViewMatrix();
+    let modelView;
+    if (usePhoneSensor && lastMagnetometerMatrix) {
+        modelView = lastMagnetometerMatrix;
+    } else {
+        modelView = spaceball.getViewMatrix();
+    }
 
     let rotateToPointZero = m4.axisRotation([0.707, 0.707, 0], 0.7);
     let translateToPointZero = m4.translation(0, 0, -10);
@@ -241,10 +412,31 @@ function init() {
 
     spaceball = new TrackballRotator(canvas, draw, 0);
 
+    document.getElementById('connectButton').addEventListener('click', connectToSensorServer);
+    document.getElementById('toggleSensorButton').addEventListener('click', function() {
+        if (usePhoneSensor) {
+            disconnectFromSensorServer();
+        } else {
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                usePhoneSensor = true;
+                document.getElementById('sensorStatus').textContent = 'Enabled';
+                document.getElementById('sensorStatus').style.color = 'green';
+            } else {
+                connectToSensorServer();
+            }
+        }
+    });
+    
+    document.getElementById('smoothingFactor').addEventListener('input', function() {
+        document.getElementById('smoothingFactorValue').textContent = this.value;
+    });
+    document.getElementById('updateInterval').addEventListener('input', function() {
+        document.getElementById('updateIntervalValue').textContent = this.value;
+    });
+    document.getElementById('historyLength').addEventListener('input', function() {
+        document.getElementById('historyLengthValue').textContent = this.value;
+    });
+
     // Initial draw
     draw();
-}
-
-function deg2rad(angle) {
-    return angle * Math.PI / 180;
 }
