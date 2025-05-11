@@ -2,62 +2,85 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>AR Sinusoid Surface with A-Frame</title>
+  <title>AR Sinusoid Surface</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <style>
     body {
       margin: 0;
+      padding: 0;
       overflow: hidden;
       font-family: Arial, sans-serif;
     }
     
-    /* Non-fullscreen container */
-    .scene-container {
+    /* Main container */
+    .container {
+      position: relative;
       width: 100%;
-      height: 80vh; /* 80% of viewport height */
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    /* AR view takes 70% */
+    .ar-container {
+      width: 100%;
+      height: 70%;
       position: relative;
     }
     
-    /* Control panel */
-    .control-panel {
+    /* Controls take 30% */
+    .controls-container {
       width: 100%;
-      height: 20vh; /* 20% of viewport height */
-      background-color: #f0f0f0;
-      padding: 10px;
+      height: 30%;
+      background-color: #f5f5f5;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
+      padding: 10px;
       box-sizing: border-box;
     }
     
-    .button-row {
+    .control-row {
       display: flex;
       justify-content: center;
       width: 100%;
-      margin-bottom: 10px;
+      margin: 5px 0;
     }
     
-    button {
+    .btn {
       background-color: #4CAF50;
       color: white;
       border: none;
-      padding: 10px 15px;
+      border-radius: 4px;
+      padding: 10px 16px;
       margin: 0 5px;
-      border-radius: 5px;
-      cursor: pointer;
       font-weight: bold;
+      cursor: pointer;
+      min-width: 140px;
+      text-align: center;
     }
     
-    #debug {
+    .btn.active {
+      background-color: #ff7f00;
+    }
+    
+    .status {
       background-color: white;
       border: 1px solid #ddd;
       border-radius: 4px;
-      padding: 5px;
+      padding: 8px;
       width: 90%;
-      max-width: 400px;
+      max-width: 350px;
       text-align: center;
-      font-size: 12px;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    
+    /* Adjust A-Frame canvas to fit container */
+    a-scene {
+      width: 100%;
+      height: 100%;
     }
   </style>
 
@@ -73,21 +96,35 @@
         radius: {type: 'number', default: 1.0},
         circleCount: {type: 'number', default: 30},
         segmentsCount: {type: 'number', default: 30},
-        color: {type: 'color', default: '#44ff44'}
+        color: {type: 'color', default: '#44ff44'},
+        wireframe: {type: 'boolean', default: false}
       },
       
       init: function() {
         this.createSurface();
       },
       
-      update: function() {
-        // Remove existing mesh
-        if (this.mesh) {
+      update: function(oldData) {
+        // Only recreate if necessary parameters have changed
+        if (this.mesh && (
+            oldData.amplitude !== this.data.amplitude ||
+            oldData.frequency !== this.data.frequency ||
+            oldData.radius !== this.data.radius ||
+            oldData.circleCount !== this.data.circleCount ||
+            oldData.segmentsCount !== this.data.segmentsCount
+        )) {
+          // Remove existing mesh
           this.el.removeObject3D('mesh');
+          this.createSurface();
+        } else if (this.mesh) {
+          // Just update material properties
+          if (oldData.color !== this.data.color) {
+            this.mesh.material.color.set(this.data.color);
+          }
+          if (oldData.wireframe !== this.data.wireframe) {
+            this.mesh.material.wireframe = this.data.wireframe;
+          }
         }
-        
-        // Create new surface with updated parameters
-        this.createSurface();
       },
       
       createVertex: function(a, n, R, r, b) {
@@ -141,7 +178,8 @@
         // Create the material
         const material = new THREE.MeshStandardMaterial({
           color: data.color,
-          side: THREE.DoubleSide
+          side: THREE.DoubleSide,
+          wireframe: data.wireframe
         });
         
         // Create the mesh
@@ -174,63 +212,68 @@
   </script>
 </head>
 <body>
-  <div class="scene-container">
-    <a-scene embedded arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;" renderer="antialias: true; logarithmicDepthBuffer: true; precision: mediump;">
-      <!-- Define assets -->
-      <a-assets>
-        <img id="hiro" src="https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/HIRO.jpg" />
-      </a-assets>
-      
-      <!-- Marker and models -->
-      <a-marker preset="hiro">
-        <!-- Container entity - position above marker -->
-        <a-entity position="0 0.5 0">
-          <!-- Transparent cube (static, not rotating) -->
-          <a-box id="cube" 
-                 color="#4287f5" 
-                 opacity="0.2" 
-                 scale="1.6 1.6 1.6" 
-                 material="transparent: true; side: double; wireframe: true;">
-          </a-box>
-          
-          <!-- Sinusoid surface (automatically rotating) -->
-          <a-entity id="sinusoid"
-                    sinusoid-surface="amplitude: 0.3; frequency: 5; radius: 1.0; color: #44ff44"
-                    auto-rotate="enabled: true; speed: 0.5"
-                    scale="0.7 0.7 0.7">
+  <div class="container">
+    <!-- AR Container (70% height) -->
+    <div class="ar-container">
+      <a-scene embedded arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;" renderer="antialias: true; logarithmicDepthBuffer: true; precision: mediump;" vr-mode-ui="enabled: false;">
+        <!-- Marker and models -->
+        <a-marker preset="hiro" id="marker">
+          <!-- Container entity - position above marker -->
+          <a-entity position="0 0.5 0">
+            <!-- Transparent cube (static, not rotating) -->
+            <a-box id="cube" 
+                   color="#4287f5" 
+                   opacity="0.2" 
+                   scale="1.6 1.6 1.6" 
+                   material="transparent: true; side: double; wireframe: true;">
+            </a-box>
+            
+            <!-- Sinusoid surface (automatically rotating) -->
+            <a-entity id="sinusoid"
+                      sinusoid-surface="amplitude: 0.3; frequency: 5; radius: 1.0; color: #44ff44; wireframe: false"
+                      auto-rotate="enabled: true; speed: 0.5"
+                      scale="0.7 0.7 0.7">
+            </a-entity>
           </a-entity>
-        </a-entity>
-      </a-marker>
-      
-      <!-- Fixed camera with no controls -->
-      <a-entity camera></a-entity>
-    </a-scene>
-  </div>
-  
-  <div class="control-panel">
-    <div class="button-row">
-      <button id="toggle-wireframe">Toggle Wireframe</button>
-      <button id="change-color">Change Colors</button>
+        </a-marker>
+        
+        <!-- Fixed camera with no controls -->
+        <a-entity camera></a-entity>
+      </a-scene>
     </div>
-    <div class="button-row">
-      <button id="update-params">Update Parameters</button>
-      <button id="toggle-rotation">Toggle Rotation</button>
+    
+    <!-- Controls Container (30% height) -->
+    <div class="controls-container">
+      <div class="control-row">
+        <button class="btn" id="btn-wireframe">Toggle Wireframe</button>
+        <button class="btn" id="btn-color">Change Colors</button>
+      </div>
+      <div class="control-row">
+        <button class="btn" id="btn-params">Update Parameters</button>
+        <button class="btn" id="btn-rotation">Toggle Rotation</button>
+      </div>
+      <div class="status" id="status">
+        Amplitude: 0.3 | Frequency: 5 | Radius: 1.0
+      </div>
     </div>
-    <div id="debug">Amplitude: 0.3 | Frequency: 5 | Radius: 1.0</div>
   </div>
   
   <script>
-    // Wait for everything to load
+    // Wait for DOM load
     document.addEventListener('DOMContentLoaded', function() {
-      // Log info for debugging
-      console.log('DOM loaded');
+      const sinusoidEntity = document.getElementById('sinusoid');
+      const cubeEntity = document.getElementById('cube');
+      const statusElement = document.getElementById('status');
+      const markerElement = document.getElementById('marker');
       
-      // Access the elements
-      const cubeElement = document.getElementById('cube');
-      const sinusoidElement = document.getElementById('sinusoid');
-      const debugElement = document.getElementById('debug');
+      // Current parameters
+      let amplitude = 0.3;
+      let frequency = 5;
+      let radius = 1.0;
+      let rotationEnabled = true;
+      let wireframeEnabled = false;
       
-      // Define color schemes
+      // Color schemes
       const colorSchemes = [
         { surface: '#44ff44', cube: '#4287f5' },
         { surface: '#ff5555', cube: '#47d147' },
@@ -239,54 +282,58 @@
       ];
       let colorSchemeIndex = 0;
       
-      // Button: Toggle Wireframe
-      document.getElementById('toggle-wireframe').addEventListener('click', function() {
-        const currentWireframe = cubeElement.getAttribute('material').wireframe;
-        cubeElement.setAttribute('material', 'wireframe', !currentWireframe);
+      // Update status display
+      function updateStatus() {
+        statusElement.textContent = `Amplitude: ${amplitude.toFixed(2)} | Frequency: ${frequency} | Radius: ${radius.toFixed(1)}`;
+      }
+      
+      // Toggle wireframe
+      document.getElementById('btn-wireframe').addEventListener('click', function() {
+        wireframeEnabled = !wireframeEnabled;
+        sinusoidEntity.setAttribute('sinusoid-surface', 'wireframe', wireframeEnabled);
+        
+        // Update button style
+        this.classList.toggle('active', wireframeEnabled);
       });
       
-      // Button: Change Colors
-      document.getElementById('change-color').addEventListener('click', function() {
+      // Change colors
+      document.getElementById('btn-color').addEventListener('click', function() {
         colorSchemeIndex = (colorSchemeIndex + 1) % colorSchemes.length;
         const newColors = colorSchemes[colorSchemeIndex];
         
-        cubeElement.setAttribute('color', newColors.cube);
-        sinusoidElement.setAttribute('sinusoid-surface', 'color', newColors.surface);
+        sinusoidEntity.setAttribute('sinusoid-surface', 'color', newColors.surface);
+        cubeEntity.setAttribute('color', newColors.cube);
       });
       
-      // Button: Update Parameters
-      document.getElementById('update-params').addEventListener('click', function() {
-        const newAmplitude = 0.1 + Math.random() * 0.4; // 0.1 to 0.5
-        const newFrequency = 2 + Math.floor(Math.random() * 4); // 2 to 5
+      // Update parameters
+      document.getElementById('btn-params').addEventListener('click', function() {
+        amplitude = 0.1 + Math.random() * 0.4; // 0.1 to 0.5
+        frequency = 2 + Math.floor(Math.random() * 4); // 2 to 5
         
-        sinusoidElement.setAttribute('sinusoid-surface', {
-          amplitude: newAmplitude,
-          frequency: newFrequency
+        sinusoidEntity.setAttribute('sinusoid-surface', {
+          amplitude: amplitude,
+          frequency: frequency
         });
         
-        // Update debug information
-        debugElement.textContent = `Amplitude: ${newAmplitude.toFixed(2)} | Frequency: ${newFrequency} | Radius: 1.0`;
+        updateStatus();
       });
       
-      // Button: Toggle Rotation
-      document.getElementById('toggle-rotation').addEventListener('click', function() {
-        const currentRotation = sinusoidElement.getAttribute('auto-rotate').enabled;
-        sinusoidElement.setAttribute('auto-rotate', 'enabled', !currentRotation);
+      // Toggle rotation
+      document.getElementById('btn-rotation').addEventListener('click', function() {
+        rotationEnabled = !rotationEnabled;
+        sinusoidEntity.setAttribute('auto-rotate', 'enabled', rotationEnabled);
         
-        // Change button color based on state
-        this.style.backgroundColor = !currentRotation ? '#4CAF50' : '#ff7f00';
+        // Update button style
+        this.classList.toggle('active', !rotationEnabled);
       });
       
-      // Log when marker is found or lost
-      const marker = document.querySelector('a-marker');
-      marker.addEventListener('markerFound', function() {
-        console.log('Marker found!');
-        debugElement.style.backgroundColor = '#e6ffe6'; // Light green
+      // Marker detection
+      markerElement.addEventListener('markerFound', function() {
+        statusElement.style.backgroundColor = '#e6ffe6'; // Light green
       });
       
-      marker.addEventListener('markerLost', function() {
-        console.log('Marker lost');
-        debugElement.style.backgroundColor = '#ffe6e6'; // Light red
+      markerElement.addEventListener('markerLost', function() {
+        statusElement.style.backgroundColor = '#ffe6e6'; // Light red
       });
     });
   </script>
