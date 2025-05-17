@@ -1,341 +1,52 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE HTML>
+<html>
+
 <head>
   <meta charset="UTF-8">
-  <title>AR Sinusoid Surface</title>
+  <title>Статичний куб з обертовою поверхнею</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      font-family: Arial, sans-serif;
-    }
-    
-    /* Main container */
-    .container {
-      position: relative;
-      width: 100%;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-    
-    /* AR view takes 70% */
-    .ar-container {
-      width: 100%;
-      height: 70%;
-      position: relative;
-    }
-    
-    /* Controls take 30% */
-    .controls-container {
-      width: 100%;
-      height: 30%;
-      background-color: #f5f5f5;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      padding: 10px;
-      box-sizing: border-box;
-    }
-    
-    .control-row {
-      display: flex;
-      justify-content: center;
-      width: 100%;
-      margin: 5px 0;
-    }
-    
-    .btn {
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      padding: 10px 16px;
-      margin: 0 5px;
-      font-weight: bold;
-      cursor: pointer;
-      min-width: 140px;
-      text-align: center;
-    }
-    
-    .btn.active {
-      background-color: #ff7f00;
-    }
-    
-    .status {
-      background-color: white;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      padding: 8px;
-      width: 90%;
-      max-width: 350px;
-      text-align: center;
-      margin-top: 10px;
-      font-size: 14px;
-    }
-    
-    /* Adjust A-Frame canvas to fit container */
-    a-scene {
-      width: 100%;
-      height: 100%;
-    }
-  </style>
+
+  <link rel="stylesheet" href="styles.css">
 
   <script src="https://cdn.jsdelivr.net/gh/aframevr/aframe@1.3.0/dist/aframe-master.min.js"></script>
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-  
-  <script>
-    // Custom component for the sinusoid surface
-    AFRAME.registerComponent('sinusoid-surface', {
-      schema: {
-        amplitude: {type: 'number', default: 0.3},
-        frequency: {type: 'number', default: 5},
-        radius: {type: 'number', default: 1.0},
-        circleCount: {type: 'number', default: 30},
-        segmentsCount: {type: 'number', default: 30},
-        color: {type: 'color', default: '#44ff44'},
-        wireframe: {type: 'boolean', default: false}
-      },
-      
-      init: function() {
-        this.createSurface();
-      },
-      
-      update: function(oldData) {
-        // Only recreate if necessary parameters have changed
-        if (this.mesh && (
-            oldData.amplitude !== this.data.amplitude ||
-            oldData.frequency !== this.data.frequency ||
-            oldData.radius !== this.data.radius ||
-            oldData.circleCount !== this.data.circleCount ||
-            oldData.segmentsCount !== this.data.segmentsCount
-        )) {
-          // Remove existing mesh
-          this.el.removeObject3D('mesh');
-          this.createSurface();
-        } else if (this.mesh) {
-          // Just update material properties
-          if (oldData.color !== this.data.color) {
-            this.mesh.material.color.set(this.data.color);
-          }
-          if (oldData.wireframe !== this.data.wireframe) {
-            this.mesh.material.wireframe = this.data.wireframe;
-          }
-        }
-      },
-      
-      createVertex: function(a, n, R, r, b) {
-        const x = r * Math.cos(b);
-        const y = r * Math.sin(b);
-        const z = a * Math.cos(n * Math.PI * r / R);
-        return new THREE.Vector3(x, y, z);
-      },
-      
-      createSurface: function() {
-        const data = this.data;
-        const geometry = new THREE.BufferGeometry();
-        
-        const vertices = [];
-        const indices = [];
-        const radius = 1;
-        
-        const radiusStep = radius / data.circleCount;
-        const segmentStep = (2 * Math.PI) / data.segmentsCount;
-        const cols = data.segmentsCount + 1;
-        
-        // Create vertices
-        for (let r_idx = 0; r_idx <= data.circleCount; r_idx++) {
-          let r = r_idx * radiusStep;
-          for (let b_idx = 0; b_idx <= data.segmentsCount; b_idx++) {
-            let beta = b_idx * segmentStep;
-            
-            let vertex = this.createVertex(data.amplitude, data.frequency, data.radius, r, beta);
-            vertices.push(vertex.x, vertex.y, vertex.z);
-          }
-        }
-        
-        // Create indices
-        for (let r_idx = 0; r_idx < data.circleCount; r_idx++) {
-          for (let b_idx = 0; b_idx < data.segmentsCount; b_idx++) {
-            let v0 = r_idx * cols + b_idx;
-            let v1 = v0 + 1;
-            let v2 = v0 + cols;
-            let v3 = v2 + 1;
-            
-            indices.push(v0, v1, v2);
-            indices.push(v2, v1, v3);
-          }
-        }
-        
-        // Create the geometry
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-        geometry.setIndex(indices);
-        geometry.computeVertexNormals();
-        
-        // Create the material
-        const material = new THREE.MeshStandardMaterial({
-          color: data.color,
-          side: THREE.DoubleSide,
-          wireframe: data.wireframe
-        });
-        
-        // Create the mesh
-        this.mesh = new THREE.Mesh(geometry, material);
-        this.el.setObject3D('mesh', this.mesh);
-      },
-      
-      remove: function() {
-        if (this.mesh) {
-          this.el.removeObject3D('mesh');
-        }
-      }
-    });
-    
-    // Auto rotation component
-    AFRAME.registerComponent('auto-rotate', {
-      schema: {
-        enabled: {type: 'boolean', default: true},
-        speed: {type: 'number', default: 1}
-      },
-      
-      tick: function(time, deltaTime) {
-        if (this.data.enabled) {
-          // Convert to seconds and apply rotation
-          const rotationAmount = (deltaTime / 1000) * this.data.speed;
-          this.el.object3D.rotation.y += rotationAmount;
-        }
-      }
-    });
-  </script>
+
+  <script src="components.js"></script>
 </head>
+
 <body>
-  <div class="container">
-    <!-- AR Container (70% height) -->
-    <div class="ar-container">
-      <a-scene embedded arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;" renderer="antialias: true; logarithmicDepthBuffer: true; precision: mediump;" vr-mode-ui="enabled: false;">
-        <!-- Marker and models -->
-        <a-marker preset="hiro" id="marker">
-          <!-- Container entity - position above marker -->
-          <a-entity position="0 0.5 0">
-            <!-- Transparent cube (static, not rotating) -->
-            <a-box id="cube" 
-                   color="#4287f5" 
-                   opacity="0.2" 
-                   scale="1.6 1.6 1.6" 
-                   material="transparent: true; side: double; wireframe: true;">
-            </a-box>
-            
-            <!-- Sinusoid surface (automatically rotating) -->
-            <a-entity id="sinusoid"
-                      sinusoid-surface="amplitude: 0.3; frequency: 5; radius: 1.0; color: #44ff44; wireframe: false"
-                      auto-rotate="enabled: true; speed: 0.5"
-                      scale="0.7 0.7 0.7">
-            </a-entity>
-          </a-entity>
-        </a-marker>
-        
-        <!-- Fixed camera with no controls -->
-        <a-entity camera></a-entity>
-      </a-scene>
+  <div class="info-panel" id="info">Шукаю маркер...</div>
+
+  <div class="control-panel">
+    <div class="control-row">
+      <button class="btn" id="btn-wireframe">Каркас</button>
+      <button class="btn" id="btn-cube-opacity">Прозорість</button>
+      <button class="btn" id="btn-color">Колір</button>
     </div>
-    
-    <!-- Controls Container (30% height) -->
-    <div class="controls-container">
-      <div class="control-row">
-        <button class="btn" id="btn-wireframe">Toggle Wireframe</button>
-        <button class="btn" id="btn-color">Change Colors</button>
-      </div>
-      <div class="control-row">
-        <button class="btn" id="btn-params">Update Parameters</button>
-        <button class="btn" id="btn-rotation">Toggle Rotation</button>
-      </div>
-      <div class="status" id="status">
-        Amplitude: 0.3 | Frequency: 5 | Radius: 1.0
-      </div>
+    <div class="control-row">
+      <button class="btn" id="btn-axis">Вісь: Y</button>
+      <button class="btn" id="btn-size">Розмір</button>
+      <button class="btn" id="btn-speed">Швидкість</button>
     </div>
   </div>
-  
-  <script>
-    // Wait for DOM load
-    document.addEventListener('DOMContentLoaded', function() {
-      const sinusoidEntity = document.getElementById('sinusoid');
-      const cubeEntity = document.getElementById('cube');
-      const statusElement = document.getElementById('status');
-      const markerElement = document.getElementById('marker');
-      
-      // Current parameters
-      let amplitude = 0.3;
-      let frequency = 5;
-      let radius = 1.0;
-      let rotationEnabled = true;
-      let wireframeEnabled = false;
-      
-      // Color schemes
-      const colorSchemes = [
-        { surface: '#44ff44', cube: '#4287f5' },
-        { surface: '#ff5555', cube: '#47d147' },
-        { surface: '#f5a742', cube: '#42f5d1' },
-        { surface: '#f54242', cube: '#f5f542' }
-      ];
-      let colorSchemeIndex = 0;
-      
-      // Update status display
-      function updateStatus() {
-        statusElement.textContent = `Amplitude: ${amplitude.toFixed(2)} | Frequency: ${frequency} | Radius: ${radius.toFixed(1)}`;
-      }
-      
-      // Toggle wireframe
-      document.getElementById('btn-wireframe').addEventListener('click', function() {
-        wireframeEnabled = !wireframeEnabled;
-        sinusoidEntity.setAttribute('sinusoid-surface', 'wireframe', wireframeEnabled);
-        
-        // Update button style
-        this.classList.toggle('active', wireframeEnabled);
-      });
-      
-      // Change colors
-      document.getElementById('btn-color').addEventListener('click', function() {
-        colorSchemeIndex = (colorSchemeIndex + 1) % colorSchemes.length;
-        const newColors = colorSchemes[colorSchemeIndex];
-        
-        sinusoidEntity.setAttribute('sinusoid-surface', 'color', newColors.surface);
-        cubeEntity.setAttribute('color', newColors.cube);
-      });
-      
-      // Update parameters
-      document.getElementById('btn-params').addEventListener('click', function() {
-        amplitude = 0.1 + Math.random() * 0.4; // 0.1 to 0.5
-        frequency = 2 + Math.floor(Math.random() * 4); // 2 to 5
-        
-        sinusoidEntity.setAttribute('sinusoid-surface', {
-          amplitude: amplitude,
-          frequency: frequency
-        });
-        
-        updateStatus();
-      });
-      
-      // Toggle rotation
-      document.getElementById('btn-rotation').addEventListener('click', function() {
-        rotationEnabled = !rotationEnabled;
-        sinusoidEntity.setAttribute('auto-rotate', 'enabled', rotationEnabled);
-        
-        // Update button style
-        this.classList.toggle('active', !rotationEnabled);
-      });
-      
-      // Marker detection
-      markerElement.addEventListener('markerFound', function() {
-        statusElement.style.backgroundColor = '#e6ffe6'; // Light green
-      });
-      
-      markerElement.addEventListener('markerLost', function() {
-        statusElement.style.backgroundColor = '#ffe6e6'; // Light red
-      });
-    });
-  </script>
+
+  <a-scene embedded vr-mode-ui="enabled: false;"
+    arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;">
+    <a-marker preset="hiro" type="pattern" id="marker">
+      <a-box id="cube" position="0 0.5 0" width="1" height="1" depth="1" color="#4287f5"
+        material="transparent: true; opacity: 0.3; side: double;">
+      </a-box>
+
+      <a-entity id="sinusoid" position="0 0.5 0" rotation="-90 0 0" scale="0.35 0.35 0.35"
+        sinusoid-surface="amplitude: 0.25; frequency: 5; radius: 0.8; color: #ff5a5a; wireframe: false"
+        multi-axis-rotation="enabled: true; speed: 0.3; mode: y">
+      </a-entity>
+    </a-marker>
+
+    <a-entity camera></a-entity>
+  </a-scene>
+
+  <script src="app.js"></script>
 </body>
+
 </html>
