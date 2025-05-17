@@ -4,6 +4,32 @@ document.addEventListener('DOMContentLoaded', function() {
     const cubeEntity = document.getElementById('cube');
     const infoPanel = document.getElementById('info');
     
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const isTablet = /iPad|tablet|Tablet/i.test(navigator.userAgent) || 
+                     (isMobile && Math.min(window.screen.width, window.screen.height) > 480);
+    
+    console.log("Пристрій:", {
+      isMobile: isMobile,
+      isTablet: isTablet,
+      userAgent: navigator.userAgent,
+      screenWidth: window.screen.width,
+      screenHeight: window.screen.height
+    });
+
+    if (isMobile && !isTablet) {
+      sinusoidEntity.setAttribute('scale', '0.15 0.15 0.15');
+      infoPanel.textContent = infoPanel.textContent + ' (Мобільний режим)';
+      console.log("Застосовано налаштування для мобільного телефону");
+    } else if (isTablet) {
+      sinusoidEntity.setAttribute('scale', '0.25 0.25 0.25');
+      infoPanel.textContent = infoPanel.textContent + ' (Планшетний режим)';
+      console.log("Застосовано налаштування для планшета");
+    } else {
+      sinusoidEntity.setAttribute('scale', '0.35 0.35 0.35');
+      infoPanel.textContent = infoPanel.textContent + ' (Десктопний режим)';
+      console.log("Застосовано налаштування для десктопу");
+    }
+    
     let wireframeEnabled = false;
     let cubeOpacity = 0.3;
     let rotationSpeed = 0.3;
@@ -19,7 +45,12 @@ document.addEventListener('DOMContentLoaded', function() {
     ];
     let modeIndex = 0;
     
-    const sizeLevels = [
+    const sizeLevels = isMobile ? [
+      {x: 0.15, y: 0.15, z: 0.15},
+      {x: 0.1, y: 0.1, z: 0.1},
+      {x: 0.2, y: 0.2, z: 0.2},
+      {x: 0.05, y: 0.05, z: 0.05}
+    ] : [
       {x: 0.35, y: 0.35, z: 0.35},
       {x: 0.25, y: 0.25, z: 0.25},
       {x: 0.45, y: 0.45, z: 0.45},
@@ -117,7 +148,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     document.getElementById('btn-cube-opacity').textContent = `Прозор: ${Math.round(cubeOpacity * 100)}%`;
     document.getElementById('btn-axis').textContent = `Вісь: Y`;
-    document.getElementById('btn-size').textContent = `Розмір: 0.35`;
+    document.getElementById('btn-size').textContent = `Розмір: ${sizeLevels[0].x}`;
     document.getElementById('btn-speed').textContent = `Швид: ${rotationSpeed.toFixed(1)}`;
     document.getElementById('btn-speed').classList.add('active');
   });

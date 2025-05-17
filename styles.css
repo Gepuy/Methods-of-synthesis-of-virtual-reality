@@ -25,7 +25,7 @@ body {
 }
 
 .btn {
-  background-color: #4caf50;
+  background-color: #4CAF50;
   color: white;
   border: none;
   border-radius: 4px;
@@ -34,6 +34,7 @@ body {
   font-weight: bold;
   cursor: pointer;
   min-width: 80px;
+  font-size: 14px;
 }
 
 .btn.active {
@@ -50,4 +51,40 @@ body {
   border-radius: 5px;
   z-index: 999;
   font-size: 14px;
+}
+
+@media only screen and (max-width: 600px) {
+  .btn {
+    padding: 6px 8px;
+    margin: 0 2px;
+    min-width: 70px;
+    font-size: 12px;
+  }
+  
+  .control-panel {
+    padding: 5px;
+  }
+  
+  .info-panel {
+    font-size: 12px;
+    padding: 5px 8px;
+  }
+}
+
+@media only screen and (min-width: 601px) and (max-width: 1024px) {
+  .btn {
+    padding: 7px 10px;
+    margin: 0 3px;
+    min-width: 75px;
+    font-size: 13px;
+  }
+}
+
+@media only screen and (min-width: 1025px) {
+  .btn {
+    padding: 8px 12px;
+    margin: 0 5px;
+    min-width: 80px;
+    font-size: 14px;
+  }
 }
