@@ -17,11 +17,11 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     if (isMobile && !isTablet) {
-      sinusoidEntity.setAttribute('scale', '0.15 0.15 0.15');
+      sinusoidEntity.setAttribute('scale', '0.35 0.35 0.35');
       infoPanel.textContent = infoPanel.textContent + ' (Мобільний режим)';
       console.log("Застосовано налаштування для мобільного телефону");
     } else if (isTablet) {
-      sinusoidEntity.setAttribute('scale', '0.25 0.25 0.25');
+      sinusoidEntity.setAttribute('scale', '0.35 0.35 0.35');
       infoPanel.textContent = infoPanel.textContent + ' (Планшетний режим)';
       console.log("Застосовано налаштування для планшета");
     } else {
@@ -45,16 +45,11 @@ document.addEventListener('DOMContentLoaded', function() {
     ];
     let modeIndex = 0;
     
-    const sizeLevels = isMobile ? [
-      {x: 0.15, y: 0.15, z: 0.15},
-      {x: 0.1, y: 0.1, z: 0.1},
-      {x: 0.2, y: 0.2, z: 0.2},
-      {x: 0.05, y: 0.05, z: 0.05}
-    ] : [
-      {x: 0.35, y: 0.35, z: 0.35},
-      {x: 0.25, y: 0.25, z: 0.25},
-      {x: 0.45, y: 0.45, z: 0.45},
-      {x: 0.15, y: 0.15, z: 0.15}
+    const sizeLevels = [
+        {x: 0.35, y: 0.35, z: 0.35},
+        {x: 0.25, y: 0.25, z: 0.25},
+        {x: 0.45, y: 0.45, z: 0.45},
+        {x: 0.15, y: 0.15, z: 0.15}
     ];
     let sizeIndex = 0;
     
